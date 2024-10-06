@@ -1,7 +1,6 @@
+from tkinter import Image
 import streamlit as st
-import cv2
 import numpy as np
-from PIL import Image
 from ultralytics import YOLO
 from paddleocr import PaddleOCR
 import http.client
@@ -69,6 +68,7 @@ def model_detection():
             img_array = np.array(img)
             st.image(img, caption="Original Image", use_column_width=True)
 
+            # Convert image to format for YOLO
             yolo_result = yolo_model(img_array)
             annotated_frame = yolo_result[0].plot() if len(yolo_result) > 0 else img_array
             st.image(annotated_frame, caption="Image after YOLO Application", use_column_width=True)
@@ -96,26 +96,25 @@ def model_detection():
         if video_file is not None:
             tfile = tempfile.NamedTemporaryFile(delete=False)
             tfile.write(video_file.read())
-            vid = cv2.VideoCapture(tfile.name)
+            vid = Image.open(tfile.name)
 
             stframe = st.empty()
-            text_detected = False
             behaviors_detected = False
 
-            while vid.isOpened():
-                ret, frame = vid.read()
-                if not ret:
+            # Process each frame of the video
+            while True:
+                frame = vid.get_frame()  # This is pseudo-code; replace with actual frame extraction logic
+                if frame is None:
                     break
 
+                # Convert frame to format for YOLO
                 yolo_result = yolo_model(frame)
                 annotated_frame = yolo_result[0].plot() if len(yolo_result) > 0 else frame
 
-                if not text_detected:
-                    ocr_result = ocr_model.ocr(frame, cls=True)
-                    if ocr_result:
-                        detected_text = "\n".join([line[1][0] for line in ocr_result[0]])
-                        text_detected = True
-                        st.write(f"Extracted text: {detected_text}")
+                ocr_result = ocr_model.ocr(frame, cls=True)
+                if ocr_result:
+                    detected_text = "\n".join([line[1][0] for line in ocr_result[0]])
+                    st.write(f"Extracted text: {detected_text}")
                 
                 detected_behaviors = []
                 for result in yolo_result[0].boxes.data.tolist():
@@ -131,9 +130,7 @@ def model_detection():
                     st.success(response)
                     behaviors_detected = True
                 
-                stframe.image(annotated_frame, channels="BGR")
-
-            vid.release()
+                stframe.image(annotated_frame, channels="RGB")
 
     elif input_option == "Camera Processing":
         st.subheader("Camera Processing")
@@ -145,22 +142,22 @@ def model_detection():
             st.session_state.camera_open = not st.session_state.camera_open
             
             if st.session_state.camera_open:
-                cap = cv2.VideoCapture(0)
+                cap = Image.open(0)  # Replace with actual camera opening code
                 stframe = st.empty()
                 st.write("Camera is open. Click 'Open/Close Camera' to close.")
 
                 behaviors_detected = False
 
                 while st.session_state.camera_open:
-                    ret, frame = cap.read()
-                    if not ret:
+                    frame = cap.read()  # Replace with actual frame capture code
+                    if frame is None:
                         st.write("Failed to capture frame. Please check your camera connection.")
                         break
 
                     yolo_result = yolo_model(frame)
                     annotated_frame = yolo_result[0].plot() if len(yolo_result) > 0 else frame
 
-                    stframe.image(annotated_frame, channels="BGR")
+                    stframe.image(annotated_frame, channels="RGB")
 
                     detected_behaviors = []
                     for result in yolo_result[0].boxes.data.tolist():
@@ -175,9 +172,6 @@ def model_detection():
                             response = send_sms(custom_message)
                         st.success(response)
                         behaviors_detected = True
-
-                cap.release()
-                st.write("Camera closed.")
 
 # Render the model detection functionality
 model_detection()
