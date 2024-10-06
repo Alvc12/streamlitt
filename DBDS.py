@@ -1,4 +1,4 @@
-from tkinter import Image
+from PIL import Image
 import streamlit as st
 import numpy as np
 from ultralytics import YOLO
